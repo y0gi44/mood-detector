@@ -3,15 +3,15 @@
 
 #include <Arduino.h>
 
-#define MAX_ITEMS 60
+#define MAX_ITEMS_HISTORY 60
 
 template <class T>
 
 
 class Historiseur {
 private:   
-    T items[MAX_ITEMS];
-    String datesEnregistrement[MAX_ITEMS];
+    T items[MAX_ITEMS_HISTORY];
+    String datesEnregistrement[MAX_ITEMS_HISTORY];
     int currentItem;
 
 public:
@@ -19,7 +19,7 @@ public:
 
     void recordItem(T items, String dateEnregistrement){
         currentItem++;
-        if (currentItem == MAX_ITEMS){
+        if (currentItem == MAX_ITEMS_HISTORY){
             currentItem = 0;
         }
 
@@ -33,7 +33,7 @@ public:
     T getItem(int index){ return items[index]; };
     String getDateEnregistrement(int index){ return datesEnregistrement[index]; };
     int getCurrentItemIndex(){ return currentItem; };
-    int getItemsCount(){ return MAX_ITEMS; };
+    int getItemsCount(){ return MAX_ITEMS_HISTORY; };
 
 };
 

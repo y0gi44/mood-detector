@@ -5,17 +5,17 @@
 #include "VoteItem.h"
 
 
-#define MAX_ITEMS 10
+#define MAX_ITEMS_VOTES 10
 
 
 
 class Votes {
 private:   
-    VoteItem items[MAX_ITEMS];
+    VoteItem items[MAX_ITEMS_VOTES];
     int itemCount;
 
 public:
-    Votes();
+    Votes(){};
 
     void init(String items[], int itemCount){
         this->itemCount = itemCount;
@@ -24,7 +24,7 @@ public:
             this->items[i].resetVotes();
         }
     };
-    VoteItem getItemName(int index){ return items[index]; };
+    VoteItem * getItemName(int index){ return &items[index]; };
 };
 
 

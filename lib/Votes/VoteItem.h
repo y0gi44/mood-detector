@@ -3,20 +3,21 @@
 
 #include <Arduino.h>
 
+#define MAX_MOODS 3
+
 class VoteItem {
     public:
-        VoteItem();
+        VoteItem(){};
         void setItemName(String name){ this->itemName = name; };
-        void setVotes(uint8_t votes){ this->votes = votes; };
-        void resetVotes(){ this->votes = 0; };
-        void incrementVotes(){ this->votes++; };
+        void resetVotes(){ for (int i = 0 ; i < MAX_MOODS; i ++ ) mood[i] = 0; };
+        void incrementVotes(int key){ this->mood[key]++; };
         
         String getItemName(){ return this->itemName; };
-        uint8_t getVotes(){ return this->votes; };
+        uint8_t getMoods(int key){ return this->mood[key]; };
 
     private:
         String itemName;
-        uint8_t votes;
+        uint8_t mood[MAX_MOODS];
 };
 
 #endif

@@ -5,6 +5,7 @@
 #include "Votes.h"
 #include <Keypad.h>
 
+#define MAX_CANIDATS 8
 
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //three columns
@@ -15,6 +16,16 @@ char keys[ROWS][COLS] = {
 {'*','0','#', 'D'}
 };
 
+int selected_candidat = -1;
+
+String candidats[MAX_CANIDATS] = {"Equipe 1",
+                                  "Equipe 2",
+                                  "Equipe 3",
+                                  "Equipe 4",
+                                  "Equipe 5",
+                                  "Equipe 6",
+                                  "Equipe 7",
+                                  "Equipe 8" };
 
 byte pin_rows[ROWS]   = {19, 18, 5, 17}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
 byte pin_column[COLS] = {16, 4, 2, 15};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
@@ -57,7 +68,7 @@ public:
 };
 
 //HistoriseurVotes historiseurVotes;
-//Votes votes_en_cours;
+Votes votes_en_cours;
 
 
 void initRTC();
@@ -71,6 +82,9 @@ void getAndDisplayDate(WiFiClient & client);
 void getAndDisplayVotes(WiFiClient & client);
 void getAndDisplayStats(WiFiClient & client);
 
+bool isBoutonVote(char c);
+int getMood(char c);
+
 void setup()
 {
   Serial.begin(115200);
@@ -79,6 +93,7 @@ void setup()
   // On stocke la date de démarrage
   start_date = rtc.now();
 
+  votes_en_cours.init(candidats, MAX_CANIDATS);
   initAp();
   
   server.begin();
@@ -117,12 +132,7 @@ void initRTC(){
   if (rtc.lostPower())
   {
     Serial.println("RTC lost power, let's set the time!");
-    // When time needs to be set on a new device, or after a power loss, the
-    // following line sets the RTC to the date & time this sketch was compiled
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-    // This line sets the RTC with an explicit date & time, for example to set
-    // January 21, 2014 at 3am you would call:
-    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
   }
 }
 
@@ -134,32 +144,48 @@ void loop()
   //Serial.println("loop");
 }
 
+void gererVote(int mood){
+  Serial.print("Vote pour ");
+  Serial.print(candidats[selected_candidat]);
+  Serial.print(" : ");
+  Serial.println(mood);
+
+  votes_en_cours.getItemName(selected_candidat)->incrementVotes(mood);
+  selected_candidat = -1;
+
+}
+
+void gererToucheCandidat(char c){
+  int key = String(keypad.key[0].kchar).toInt();
+  if (key > MAX_CANIDATS){
+    Serial.println("Candidat inconnu");
+  }else {
+    Serial.print("Candidat ");
+    Serial.print(key);
+    Serial.print(" : ");
+    Serial.println(candidats[key]);
+    selected_candidat = key;
+  }
+}
+
 void gestionBoutonsVote(){
-  
   if (keypad.getKeys())
   {
-      for (int i=0; i<LIST_MAX; i++)   // Scan the whole key list.
-      {
-          if ( keypad.key[i].stateChanged )   // Only find keys that have changed state.
-          {
-              switch (keypad.key[i].kstate) {  // Report active key state : IDLE, PRESSED, HOLD, or RELEASED
-                  case PRESSED:
-                  msg = " PRESSED.";
-              break;
-                  case HOLD:
-                  msg = " HOLD.";
-              break;
-                  case RELEASED:
-                  msg = " RELEASED.";
-              break;
-                  case IDLE:
-                  msg = " IDLE.";
-              }
-              Serial.print("Key ");
-              Serial.print(keypad.key[i].kchar);
-              Serial.println(msg);
-          }
+    if ( keypad.key[0].stateChanged )   // Only find keys that have changed state.
+    {
+      if (keypad.key[0].kstate == PRESSED) {
+        char key_pressed = keypad.key[0].kchar;
+        if (isBoutonVote(key_pressed)){   
+          if ( selected_candidat == -1){
+            Serial.println("Veuillez selectionner un candidat d'abord");
+          }else {
+            gererVote(getMood(key_pressed));
+          }            
+        }else {
+          gererToucheCandidat(key_pressed);
+        }
       }
+    }
   }
 }
 
@@ -219,8 +245,8 @@ void handleWifiClient(){
               int start = header.indexOf("GET /set-time/?datetimestr=") + 27;
               int end = start + 14;
               String time = header.substring(start, end);
-              Serial.println("header : " + header);
-              Serial.println("time : " + time);
+              //Serial.println("header : " + header);
+              //Serial.println("time : " + time);
               
 
               int year = time.substring(0, 4).toInt();
@@ -243,8 +269,29 @@ void handleWifiClient(){
               Serial.println(sec);
               rtc.adjust(DateTime(year, month, day, hour, min, sec));
 
+            }else if (header.indexOf("GET /download") >= 0)
+            {
+              Serial.println("Download");
+              client.println("HTTP/1.1 200 OK");
+              client.println("Content-Type: text/csv");
+              client.println("Content-Disposition: attachment; filename=votes.csv");
+              client.println("Connection: close");
+              client.println();
+              client.println("Candidat;Happy;Indifferent;Sad");
+              for (int i = 0; i < MAX_CANIDATS; i++)
+              {
+                client.print(votes_en_cours.getItemName(i)->getItemName());
+                client.print(";");
+                client.print(votes_en_cours.getItemName(i)->getMoods(1));
+                client.print(";");
+                client.print(votes_en_cours.getItemName(i)->getMoods(2));
+                client.print(";");
+                client.print(votes_en_cours.getItemName(i)->getMoods(3));
+                client.println();
+              }
+              break;
             }
-
+            
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
@@ -261,6 +308,7 @@ void handleWifiClient(){
             getAndDisplayDate(client);
             getAndDisplayStats(client);
             getAndDisplayVotes(client);
+            client.println("<a href=\"download\"><button class=\"button button-data\">Download Data</button></a>");
             // Display current state, and ON/OFF buttons for GPIO 26
             client.println("<p>GPIO 26 - State " + output26State + "</p>");
             // If the output26State is off, it displays the ON button
@@ -286,9 +334,6 @@ void handleWifiClient(){
             }
 
             client.println("<form action=\"/set-time/\" method=\"get\"><label for=\"datestr\">Date time (YYYYMMDDHH24MISS) :</label><br><input type=\"text\" id=\"datetimestr\" name=\"datetimestr\"><br> <input type=\"submit\" value=\"Mettre A jour\"> </form>");
-            
-            
-
             client.println("</body></html>");
 
             // The HTTP response ends with another blank line
@@ -361,48 +406,53 @@ void getAndDisplayStats(WiFiClient & client){
 void getAndDisplayVotes(WiFiClient & client){
   client.print("</a><p><h2>Current Votes : ");
   client.print("</h2></p>");
-
+  client.print("<table style=\"width:100%\">");
+  client.print("<tr>");
+  client.print("<th>Candidat</th>");
+  client.print("<th>Happy</th>");
+  client.print("<th>Indifferent</th>");
+  client.print("<th>Sad</th>");
+  client.print("</tr>");
+  for (int i = 0; i < MAX_CANIDATS; i++)
+  {
+    client.print("<tr>");
+    client.print("<td>");
+    client.print(votes_en_cours.getItemName(i)->getItemName());
+    client.print("</td>");
+    client.print("<td>");
+    client.print(votes_en_cours.getItemName(i)->getMoods(1));
+    client.print("</td>");
+    client.print("<td>");
+    client.print(votes_en_cours.getItemName(i)->getMoods(2));
+    client.print("</td>");
+    client.print("<td>");
+    client.print(votes_en_cours.getItemName(i)->getMoods(3));
+    client.print("</td>");
+    client.print("</tr>");
+  }
 }
 
-
-void showDate(const char *txt, const DateTime &dt)
-{
-  Serial.print(txt);
-  Serial.print(' ');
-  Serial.print(dt.year(), DEC);
-  Serial.print('/');
-  Serial.print(dt.month(), DEC);
-  Serial.print('/');
-  Serial.print(dt.day(), DEC);
-  Serial.print(' ');
-  Serial.print(dt.hour(), DEC);
-  Serial.print(':');
-  Serial.print(dt.minute(), DEC);
-  Serial.print(':');
-  Serial.print(dt.second(), DEC);
-
-  Serial.print(" = ");
-  Serial.print(dt.unixtime());
-  Serial.print("s / ");
-  Serial.print(dt.unixtime() / 86400L);
-  Serial.print("d since 1970");
-
-  Serial.println();
+bool isBoutonVote(char c){
+  return c == 'A' || c == 'B' || c == 'C' || c == 'D';
 }
 
-void showTimeSpan(const char *txt, const TimeSpan &ts)
-{
-  Serial.print(txt);
-  Serial.print(" ");
-  Serial.print(ts.days(), DEC);
-  Serial.print(" days ");
-  Serial.print(ts.hours(), DEC);
-  Serial.print(" hours ");
-  Serial.print(ts.minutes(), DEC);
-  Serial.print(" minutes ");
-  Serial.print(ts.seconds(), DEC);
-  Serial.print(" seconds (");
-  Serial.print(ts.totalseconds(), DEC);
-  Serial.print(" total seconds)");
-  Serial.println();
+int getMood(char c){
+  switch (c)
+  {
+  case 'A':
+    return 1;
+    break;
+  case 'B':
+    return 2;
+    break;
+  case 'C':
+    return 3;
+    break;
+  case 'D':
+    return 4;
+    break;
+  default:
+    return -1;
+    break;
+  }
 }
