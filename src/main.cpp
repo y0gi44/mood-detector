@@ -32,7 +32,8 @@ String candidats[MAX_CANIDATS] = {"Equipe 1",
                                   "Equipe 5",
                                   "Equipe 6",
                                   "Equipe 7",
-                                  "Equipe 8" };
+                                  "Equipe 8",
+                                  "Equipe 9"};
 
 byte pin_rows[ROWS]   = {19, 18, 5, 17}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
 byte pin_column[COLS] = {16, 4, 2, 15};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
