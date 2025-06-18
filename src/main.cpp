@@ -1,11 +1,18 @@
 #include <Arduino.h>
 #include <RTClib.h>
 #include <WiFi.h>
+
 #include "Historiseur.h"
 #include "Votes.h"
 #include <Keypad.h>
 
-#define MAX_CANIDATS 8
+
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ElegantOTA.h>
+
+
+#define MAX_CANIDATS 9
 
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //three columns
@@ -29,6 +36,11 @@ String candidats[MAX_CANIDATS] = {"Equipe 1",
 
 byte pin_rows[ROWS]   = {19, 18, 5, 17}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
 byte pin_column[COLS] = {16, 4, 2, 15};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
+//byte pin_column[COLS] = {36, 39, 34, 35};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
+byte green_led_pin = 13;
+byte red_led_pin = 12;
+
+
 
 Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROWS, COLS );
 
@@ -44,17 +56,11 @@ const char *password = "123456789";
 
 // Set web server port number to 80
 WiFiServer server(80);
+WebServer ota_server(8080);
+
 
 // Variable to store the HTTP request
 String header;
-
-// Auxiliar variables to store the current output state
-String output26State = "off";
-String output27State = "off";
-
-// Assign output variables to GPIO pins
-const int output26 = 26;
-const int output27 = 27;
 
 RTC_DS3231 rtc;
 
@@ -74,6 +80,7 @@ Votes votes_en_cours;
 void initRTC();
 void initPins();
 void initAp();
+void initOTA();
 
 // put function declarations here:
 void handleWifiClient();
@@ -81,9 +88,37 @@ void gestionBoutonsVote();
 void getAndDisplayDate(WiFiClient & client);
 void getAndDisplayVotes(WiFiClient & client);
 void getAndDisplayStats(WiFiClient & client);
+void keypadEvent(KeypadEvent key) ;
 
 bool isBoutonVote(char c);
 int getMood(char c);
+
+
+unsigned long ota_progress_millis = 0;
+
+void onOTAStart() {
+  // Log when OTA has started
+  Serial.println("OTA update started!");
+  // <Add your own code here>
+}
+
+void onOTAProgress(size_t current, size_t final) {
+  // Log every 1 second
+  if (millis() - ota_progress_millis > 1000) {
+    ota_progress_millis = millis();
+    Serial.printf("OTA Progress Current: %u bytes, Final: %u bytes\n", current, final);
+  }
+}
+
+void onOTAEnd(bool success) {
+  // Log when OTA has finished
+  if (success) {
+    Serial.println("OTA update finished successfully!");
+  } else {
+    Serial.println("There was an error during OTA update!");
+  }
+  // <Add your own code here>
+}
 
 void setup()
 {
@@ -95,8 +130,31 @@ void setup()
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
   initAp();
+
+  keypad.addEventListener(keypadEvent);
   
   server.begin();
+
+  initOTA();
+
+  Serial.print("Setup Complete !");
+}
+
+void initOTA(){
+  Serial.println("Start OTA initialization...");
+
+  ota_server.on("/", []() {
+    ota_server.send(200, "text/plain", "Hi! This is ElegantOTA Demo Oh yeaaahh !!!.");
+  });
+
+  ElegantOTA.begin(&ota_server);    // Start ElegantOTA
+  // ElegantOTA callbacks
+  ElegantOTA.onStart(onOTAStart);
+  ElegantOTA.onProgress(onOTAProgress);
+  ElegantOTA.onEnd(onOTAEnd);
+
+  ota_server.begin();
+  Serial.println("OTA initialization Finished");
 }
 
 void initAp(){
@@ -113,11 +171,11 @@ void initAp(){
 
 void initPins(){
   // Initialize the output variables as outputs
-  pinMode(output26, OUTPUT);
-  pinMode(output27, OUTPUT);
+  pinMode(green_led_pin, OUTPUT);
+  pinMode(red_led_pin, OUTPUT);
   // Set outputs to LOW
-  digitalWrite(output26, LOW);
-  digitalWrite(output27, LOW);
+  digitalWrite(red_led_pin, LOW);
+  digitalWrite(green_led_pin, LOW);
 }
 
 void initRTC(){
@@ -141,8 +199,32 @@ void loop()
 {
   handleWifiClient();
   gestionBoutonsVote();
-  //Serial.println("loop");
+  ota_server.handleClient();
+  ElegantOTA.loop();
 }
+
+void led_notif_ok(){
+  for (int i = 0 ; i< 5 ; i++) {
+    digitalWrite(green_led_pin, HIGH);
+    delay(100);
+    digitalWrite(green_led_pin, LOW);
+    delay(100);
+  }
+  digitalWrite(green_led_pin, HIGH);
+  delay(500);
+  digitalWrite(green_led_pin, LOW);
+}
+
+void led_notif_ko(){
+  for (int i = 0 ; i< 5 ; i++) {
+    digitalWrite(red_led_pin, HIGH);
+    delay(200);
+    digitalWrite(red_led_pin, LOW);
+    delay(200);
+  }
+  
+}
+
 
 void gererVote(int mood){
   Serial.print("Vote pour ");
@@ -152,13 +234,15 @@ void gererVote(int mood){
 
   votes_en_cours.getItemName(selected_candidat)->incrementVotes(mood);
   selected_candidat = -1;
-
+  led_notif_ok();
+  
 }
 
 void gererToucheCandidat(char c){
   int key = String(keypad.key[0].kchar).toInt();
-  if (key > MAX_CANIDATS){
+  if (key >= MAX_CANIDATS){
     Serial.println("Candidat inconnu");
+    led_notif_ko  ();
   }else {
     Serial.print("Candidat ");
     Serial.print(key);
@@ -175,9 +259,11 @@ void gestionBoutonsVote(){
     {
       if (keypad.key[0].kstate == PRESSED) {
         char key_pressed = keypad.key[0].kchar;
+        Serial.println("Key pressed : " + String(key_pressed));
         if (isBoutonVote(key_pressed)){   
           if ( selected_candidat == -1){
             Serial.println("Veuillez selectionner un candidat d'abord");
+            led_notif_ko();
           }else {
             gererVote(getMood(key_pressed));
           }            
@@ -215,32 +301,7 @@ void handleWifiClient(){
             client.println("Connection: close");
             client.println();
 
-            // turns the GPIOs on and off
-            if (header.indexOf("GET /26/on") >= 0)
-            {
-              Serial.println("GPIO 26 on");
-              output26State = "on";
-              digitalWrite(output26, HIGH);
-            }
-            else if (header.indexOf("GET /26/off") >= 0)
-            {
-              Serial.println("GPIO 26 off");
-              output26State = "off";
-              digitalWrite(output26, LOW);
-            }
-            else if (header.indexOf("GET /27/on") >= 0)
-            {
-              Serial.println("GPIO 27 on");
-              output27State = "on";
-              digitalWrite(output27, HIGH);
-            }
-            else if (header.indexOf("GET /27/off") >= 0)
-            {
-              Serial.println("GPIO 27 off");
-              output27State = "off";
-              digitalWrite(output27, LOW);
-            }
-            else if (header.indexOf("GET /set-time/") >= 0)
+            if (header.indexOf("GET /set-time/") >= 0)
             {
               int start = header.indexOf("GET /set-time/?datetimestr=") + 27;
               int end = start + 14;
@@ -309,30 +370,7 @@ void handleWifiClient(){
             getAndDisplayStats(client);
             getAndDisplayVotes(client);
             client.println("<a href=\"download\"><button class=\"button button-data\">Download Data</button></a>");
-            // Display current state, and ON/OFF buttons for GPIO 26
-            client.println("<p>GPIO 26 - State " + output26State + "</p>");
-            // If the output26State is off, it displays the ON button
-            if (output26State == "off")
-            {
-              client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
-            }
-            else
-            {
-              client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
-            }
-
-            // Display current state, and ON/OFF buttons for GPIO 27
-            client.println("<p>GPIO 27 - State " + output27State + "</p>");
-            // If the output27State is off, it displays the ON button
-            if (output27State == "off")
-            {
-              client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
-            }
-            else
-            {
-              client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
-            }
-
+            
             client.println("<form action=\"/set-time/\" method=\"get\"><label for=\"datestr\">Date time (YYYYMMDDHH24MISS) :</label><br><input type=\"text\" id=\"datetimestr\" name=\"datetimestr\"><br> <input type=\"submit\" value=\"Mettre A jour\"> </form>");
             client.println("</body></html>");
 
@@ -454,5 +492,29 @@ int getMood(char c){
   default:
     return -1;
     break;
+  }
+}
+
+
+
+// Fonction de Gestion de l'evenement du clavier
+void keypadEvent(KeypadEvent key) {
+  switch (keypad.getState()) {
+    case PRESSED:
+      Serial.print("   => PRESSED : ");
+      Serial.println(key);
+      break;
+
+    case RELEASED:
+      Serial.print("   => RELEASED : ");
+      Serial.println(key);
+      
+      break;
+
+    case HOLD:
+      Serial.print("   => HOLS : ");
+      Serial.println(key);
+      
+      break;
   }
 }
