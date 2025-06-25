@@ -4,52 +4,21 @@
 
 #include "Historiseur.h"
 #include "Votes.h"
-#include <Keypad.h>
+#include "KeyBoard.h"
 
+#include "Affichage.h"
 
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <ElegantOTA.h>
 
-
-#define MAX_CANIDATS 9
-
-const byte ROWS = 4; //four rows
-const byte COLS = 4; //three columns
-char keys[ROWS][COLS] = {
-{'1','2','3', 'A'},
-{'4','5','6', 'B'},
-{'7','8','9', 'C'},
-{'*','0','#', 'D'}
-};
-
-int selected_candidat = -1;
-
-String candidats[MAX_CANIDATS] = {"Equipe 1",
-                                  "Equipe 2",
-                                  "Equipe 3",
-                                  "Equipe 4",
-                                  "Equipe 5",
-                                  "Equipe 6",
-                                  "Equipe 7",
-                                  "Equipe 8",
-                                  "Equipe 9"};
-
-byte pin_rows[ROWS]   = {19, 18, 5, 17}; // GPIO19, GPIO18, GPIO5, GPIO17 connect to the row pins
-byte pin_column[COLS] = {16, 4, 2, 15};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
-//byte pin_column[COLS] = {36, 39, 34, 35};   // GPIO16, GPIO4, GPIO0, GPIO2 connect to the column pins
-byte green_led_pin = 13;
-byte red_led_pin = 12;
-
-
-
-Keypad keypad = Keypad( makeKeymap(keys), pin_rows, pin_column, ROWS, COLS );
+#define RED_PIN 12
+#define GREEN_PIN 13
+#define YELLOW_PIN 14
 
 unsigned long loopCount;
 unsigned long startTime;
 String msg;
-
-
 
 // Replace with your network credentials
 const char *ssid = "Mood1";
@@ -76,10 +45,16 @@ public:
 
 //HistoriseurVotes historiseurVotes;
 Votes votes_en_cours;
+Keyboard clavier;
+Affichage affichage;
+
+#define MAX_CANIDATS 9
+String candidats[MAX_CANIDATS] = {"Equipe 1", "Equipe 2", "Equipe 3", "Equipe 4", "Equipe 5",
+                                  "Equipe 6", "Equipe 7", "Equipe 8", "Equipe 9"};
+int selected_candidat;
 
 
 void initRTC();
-void initPins();
 void initAp();
 void initOTA();
 
@@ -89,10 +64,46 @@ void gestionBoutonsVote();
 void getAndDisplayDate(WiFiClient & client);
 void getAndDisplayVotes(WiFiClient & client);
 void getAndDisplayStats(WiFiClient & client);
-void keypadEvent(KeypadEvent key) ;
 
 bool isBoutonVote(char c);
 int getMood(char c);
+
+void gererVote(int mood) ;
+void process_keyPressed(char key_pressed);
+void gererToucheCandidat(char c);
+
+
+void gererToucheCandidat(char c){ 
+  int key = String(c).toInt();
+  if (key >= MAX_CANIDATS){
+    Serial.println("Candidat inconnu");
+    affichage.afficherErreurDeSaisie();
+  }else {
+    Serial.print("Candidat ");
+    Serial.print(key);
+    Serial.print(" : ");
+    Serial.println(candidats[key]);
+    selected_candidat = key;
+  }
+}
+
+void process_keyPressed(char key_pressed) {
+  if (key_pressed == '_') {
+    // Pas de touche pressée, on ne fait rien
+    return;
+  }
+
+  if (isBoutonVote(key_pressed)) {
+    if (selected_candidat == -1) {
+      Serial.println("Veuillez selectionner un candidat d'abord");
+      affichage.afficherErreurDeSaisie();
+    } else {
+      gererVote(getMood(key_pressed));
+    }
+  } else {
+    gererToucheCandidat(key_pressed);
+  }
+}
 
 
 unsigned long ota_progress_millis = 0;
@@ -123,22 +134,26 @@ void onOTAEnd(bool success) {
 
 void setup()
 {
+  affichage.initAffichage(true);
+
   Serial.begin(115200);
   initRTC();
-  initPins();
+  initAp();
+
   // On stocke la date de démarrage
   start_date = rtc.now();
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
-  initAp();
 
-  keypad.addEventListener(keypadEvent);
+  clavier.initKeyboard(true);
   
   server.begin();
 
   initOTA();
 
   Serial.print("Setup Complete !");
+  affichage.afficherInitEnCours();
+
 }
 
 void initOTA(){
@@ -170,14 +185,6 @@ void initAp(){
 
 }
 
-void initPins(){
-  // Initialize the output variables as outputs
-  pinMode(green_led_pin, OUTPUT);
-  pinMode(red_led_pin, OUTPUT);
-  // Set outputs to LOW
-  digitalWrite(red_led_pin, LOW);
-  digitalWrite(green_led_pin, LOW);
-}
 
 void initRTC(){
   if (!rtc.begin())
@@ -199,35 +206,15 @@ void initRTC(){
 void loop()
 {
   handleWifiClient();
-  gestionBoutonsVote();
+  char key_pressed = clavier.gererTouches();
+  process_keyPressed(key_pressed);
+
+  affichage.processAffichage();
   ota_server.handleClient();
   ElegantOTA.loop();
 }
 
-void led_notif_ok(){
-  for (int i = 0 ; i< 5 ; i++) {
-    digitalWrite(green_led_pin, HIGH);
-    delay(100);
-    digitalWrite(green_led_pin, LOW);
-    delay(100);
-  }
-  digitalWrite(green_led_pin, HIGH);
-  delay(500);
-  digitalWrite(green_led_pin, LOW);
-}
-
-void led_notif_ko(){
-  for (int i = 0 ; i< 5 ; i++) {
-    digitalWrite(red_led_pin, HIGH);
-    delay(200);
-    digitalWrite(red_led_pin, LOW);
-    delay(200);
-  }
-  
-}
-
-
-void gererVote(int mood){
+void gererVote(int mood) {
   Serial.print("Vote pour ");
   Serial.print(candidats[selected_candidat]);
   Serial.print(" : ");
@@ -235,46 +222,23 @@ void gererVote(int mood){
 
   votes_en_cours.getItemName(selected_candidat)->incrementVotes(mood);
   selected_candidat = -1;
-  led_notif_ok();
+  switch (mood)
+  { 
+    case 1:
+      affichage.afficherVotesPrisEnCompte(RED_PIN);
+      break;
+    case 2:
+      affichage.afficherVotesPrisEnCompte(YELLOW_PIN);
+      break;
+    case 3:
+      affichage.afficherVotesPrisEnCompte(GREEN_PIN);
+      break;
+    default:
+      Serial.println("Mood inconnu");
+  }
   
 }
 
-void gererToucheCandidat(char c){
-  int key = String(keypad.key[0].kchar).toInt();
-  if (key >= MAX_CANIDATS){
-    Serial.println("Candidat inconnu");
-    led_notif_ko  ();
-  }else {
-    Serial.print("Candidat ");
-    Serial.print(key);
-    Serial.print(" : ");
-    Serial.println(candidats[key]);
-    selected_candidat = key;
-  }
-}
-
-void gestionBoutonsVote(){
-  if (keypad.getKeys())
-  {
-    if ( keypad.key[0].stateChanged )   // Only find keys that have changed state.
-    {
-      if (keypad.key[0].kstate == PRESSED) {
-        char key_pressed = keypad.key[0].kchar;
-        Serial.println("Key pressed : " + String(key_pressed));
-        if (isBoutonVote(key_pressed)){   
-          if ( selected_candidat == -1){
-            Serial.println("Veuillez selectionner un candidat d'abord");
-            led_notif_ko();
-          }else {
-            gererVote(getMood(key_pressed));
-          }            
-        }else {
-          gererToucheCandidat(key_pressed);
-        }
-      }
-    }
-  }
-}
 
 void handleWifiClient(){
   WiFiClient client = server.available(); // Listen for incoming clients
@@ -471,6 +435,9 @@ void getAndDisplayVotes(WiFiClient & client){
   }
 }
 
+
+
+
 bool isBoutonVote(char c){
   return c == 'A' || c == 'B' || c == 'C' || c == 'D';
 }
@@ -493,29 +460,5 @@ int getMood(char c){
   default:
     return -1;
     break;
-  }
-}
-
-
-
-// Fonction de Gestion de l'evenement du clavier
-void keypadEvent(KeypadEvent key) {
-  switch (keypad.getState()) {
-    case PRESSED:
-      Serial.print("   => PRESSED : ");
-      Serial.println(key);
-      break;
-
-    case RELEASED:
-      Serial.print("   => RELEASED : ");
-      Serial.println(key);
-      
-      break;
-
-    case HOLD:
-      Serial.print("   => HOLS : ");
-      Serial.println(key);
-      
-      break;
   }
 }
