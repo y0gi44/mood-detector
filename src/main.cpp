@@ -74,8 +74,8 @@ void gererToucheCandidat(char c);
 
 
 void gererToucheCandidat(char c){ 
-  int key = String(c).toInt();
-  if (key >= MAX_CANIDATS){
+  int key = String(c).toInt() -1;
+  if (key >= MAX_CANIDATS || key < 0){
     Serial.println("Candidat inconnu");
     affichage.afficherErreurDeSaisie();
   }else {
@@ -134,7 +134,7 @@ void onOTAEnd(bool success) {
 
 void setup()
 {
-  affichage.initAffichage(true);
+  affichage.initAffichage(false);
 
   Serial.begin(115200);
   initRTC();
@@ -145,7 +145,7 @@ void setup()
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
 
-  clavier.initKeyboard(true);
+  clavier.initKeyboard(false);
   
   server.begin();
 

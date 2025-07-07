@@ -98,7 +98,7 @@ void Affichage::processAffichage() {
 
 
     unsigned long currentTime = millis();
-    if (timetoGoNext > currentTime) {
+    if (timetoGoNext < currentTime) {
         // on passe à l'index suivant
         if (debug)
             Serial.println("incrément de l'index : " + String(currentIndex));
@@ -108,7 +108,7 @@ void Affichage::processAffichage() {
         if (currentIndex < maxIndexSequenceEnMemoire) {
             allumerLedEtMajTemps();
         }
-    } else if (timetoLightOff  > currentTime) {
+    } else if (timetoLightOff  < currentTime) {
         // on éteint la led
         digitalWrite(TableauSequence[currentIndex].pin, LOW);
         if (debug)
@@ -123,7 +123,7 @@ void Affichage::allumerLedEtMajTemps() {
     // on allume la led associée à l'index courant
     digitalWrite(TableauSequence[currentIndex].pin, HIGH);
     // on met à jour le temps pour éteindre la led
-    timetoLightOff = currentTime + TableauSequence[currentIndex].delaiOn*1000;
+    timetoLightOff = currentTime + TableauSequence[currentIndex].delaiOn;
     // on met à jour le temps pour passer à l'index suivant
-    timetoGoNext = timetoLightOff + TableauSequence[currentIndex].delaiOff *1000;
+    timetoGoNext = timetoLightOff + TableauSequence[currentIndex].delaiOff;
 }
