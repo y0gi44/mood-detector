@@ -12,8 +12,13 @@
 #include <WebServer.h>
 #include <ElegantOTA.h>
 
-#define RED_PIN 12
-#define GREEN_PIN 13
+
+#include <Preferences.h>
+Preferences preferences;
+
+
+#define RED_PIN 13
+#define GREEN_PIN 12
 #define YELLOW_PIN 14
 
 unsigned long loopCount;
@@ -72,6 +77,20 @@ void gererVote(int mood) ;
 void process_keyPressed(char key_pressed);
 void gererToucheCandidat(char c);
 
+void save_vote_en_cours();
+void restore_vote_en_cours();
+
+
+
+void save_vote_en_cours(){
+  Serial.println("Sauvegarde des votes");
+  preferences.putString("current", votes_en_cours.to_string());
+}
+
+void restore_vote_en_cours(){
+  Serial.println("Restauration des votes");
+  votes_en_cours.load_from_String(preferences.getString("current"));
+}
 
 void gererToucheCandidat(char c){ 
   int key = String(c).toInt() -1;
@@ -144,7 +163,6 @@ void setup()
   start_date = rtc.now();
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
-
   clavier.initKeyboard(false);
   
   server.begin();
@@ -154,6 +172,9 @@ void setup()
   Serial.print("Setup Complete !");
   affichage.afficherInitEnCours();
 
+  preferences.begin("mood-stats", false); 
+
+
 }
 
 void initOTA(){
@@ -161,6 +182,39 @@ void initOTA(){
 
   ota_server.on("/", []() {
     ota_server.send(200, "text/plain", "Hi! This is ElegantOTA Demo Oh yeaaahh !!!.");
+  });
+
+  ota_server.on("/download", HTTP_GET, []() {
+    String s = "Candidat;Happy;Indifferent;Sad\n";
+    for (int i = 0; i < MAX_CANIDATS; i++)
+    {
+      s+= String(votes_en_cours.getItemName(i)->getItemName());
+      s+= ";";
+      s+= String(votes_en_cours.getItemName(i)->getMoods(1));
+      s+= ";";
+      s+= String(votes_en_cours.getItemName(i)->getMoods(2));
+      s+= ";";
+      s+= String(votes_en_cours.getItemName(i)->getMoods(3));
+      s+= "\n";
+    }
+    ota_server.send(200, "text/plain", s.c_str());
+    
+  });
+
+  ota_server.on("/save", HTTP_GET, []() {
+    save_vote_en_cours();
+    ota_server.send(200, "text/plain", "Hi, vote en cours sauvegardé. ");    
+  });
+
+  ota_server.on("/restore", HTTP_GET, []() {
+    save_vote_en_cours();
+    ota_server.send(200, "text/plain", "Hi, vote en cours restaurés. ");    
+  });
+
+  ota_server.on("/reset", HTTP_GET, []() {
+    preferences.clear();
+      Serial.println("Suppression de la sauvegarde en flash");
+    ota_server.send(200, "text/plain", "memory cleared. ");    
   });
 
   ElegantOTA.begin(&ota_server);    // Start ElegantOTA
@@ -177,7 +231,8 @@ void initAp(){
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Setting AP (Access Point)…");
   // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.softAP(ssid, password);
+  //WiFi.softAP(ssid, password);
+  WiFi.softAP(ssid);
 
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
@@ -434,8 +489,6 @@ void getAndDisplayVotes(WiFiClient & client){
     client.print("</tr>");
   }
 }
-
-
 
 
 bool isBoutonVote(char c){
