@@ -9,14 +9,20 @@ void Affichage::initAffichage(bool debug ){
   pinMode(green_led_pin, OUTPUT);
   pinMode(yellow_led_pin, OUTPUT);
   pinMode(red_led_pin, OUTPUT);
-  // Set outputs to LOW
-  digitalWrite(red_led_pin, LOW);
-  digitalWrite(yellow_led_pin, LOW);
-  digitalWrite(green_led_pin, LOW);
+  
+  this->eteindreToutesLesLed();
   this->debug = debug;
   Serial.println("Affichage initialisé");
   if (debug)
     Serial.println("Affichage en mode debug");
+}
+
+void Affichage::eteindreToutesLesLed(){
+// Set outputs to LOW
+  digitalWrite(red_led_pin, LOW);
+  digitalWrite(yellow_led_pin, LOW);
+  digitalWrite(green_led_pin, LOW);
+  
 }
 
 void Affichage::afficherVotesPrisEnCompte(){
@@ -30,6 +36,7 @@ void Affichage::afficherVotesPrisEnCompte(){
     
     currentIndex = 0;
     maxIndexSequenceEnMemoire = index - 1;
+    this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
 
@@ -44,6 +51,7 @@ void Affichage::afficherVotesPrisEnCompte(byte ledPin){
     
     currentIndex = 0;
     maxIndexSequenceEnMemoire = index - 1;
+    this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
 
@@ -57,6 +65,7 @@ void Affichage::afficherErreurDeSaisie(){
         
     currentIndex = 0;
     maxIndexSequenceEnMemoire = index - 1;
+    this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
 
@@ -76,6 +85,7 @@ void Affichage::afficherInitEnCours(){
     
     currentIndex = 0;
     maxIndexSequenceEnMemoire = index - 1;
+    this->eteindreToutesLesLed();  
     allumerLedEtMajTemps();
 }
 

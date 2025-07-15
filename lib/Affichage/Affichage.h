@@ -18,6 +18,7 @@ public:
     Affichage(){};
     
     void initAffichage(bool debug = false);
+    void eteindreToutesLesLed();
     void afficherVotesPrisEnCompte(byte ledpin);
     void afficherVotesPrisEnCompte();
     void afficherErreurDeSaisie();
