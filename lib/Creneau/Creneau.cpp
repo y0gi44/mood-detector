@@ -189,18 +189,19 @@ void initOTA(){
   });
 
   ota_server.on("/download", HTTP_GET, []() {
-    String s = "Candidat;Happy;Indifferent;Sad\n";
+    String s = "Créneau;Nombre des couverts\n";
+    int allCouverts = 0;
     for (int i = 0; i < MAX_CANIDATS; i++)
     {
       s+= String(votes_en_cours.getItemName(i)->getItemName());
       s+= ";";
       s+= String(votes_en_cours.getItemName(i)->getMoods(1));
-      s+= ";";
-      s+= String(votes_en_cours.getItemName(i)->getMoods(2));
-      s+= ";";
-      s+= String(votes_en_cours.getItemName(i)->getMoods(3));
       s+= "\n";
+      allCouverts += votes_en_cours.getItemName(i)->getMoods(1);
     }
+    s+= "Total;";
+    s+= String(allCouverts);
+    s+= "\n";
     ota_server.send(200, "text/plain", s.c_str());
     
   });

@@ -55,8 +55,8 @@ Votes votes_en_cours;
 Keyboard clavier;
 Affichage affichage;
 
-#define MAX_CANIDATS 9
-String candidats[MAX_CANIDATS] = {"Equipe 1", "Equipe 2", "Equipe 3", "Equipe 4", "Equipe 5",
+#define MAX_CANIDATS 10
+String candidats[MAX_CANIDATS] = {"Equipe 0", "Equipe 1", "Equipe 2", "Equipe 3", "Equipe 4", "Equipe 5",
                                   "Equipe 6", "Equipe 7", "Equipe 8", "Equipe 9"};
 int selected_candidat;
 
@@ -95,10 +95,10 @@ void restore_vote_en_cours(){
 }
 
 void gererToucheCandidat(char c){ 
-  int key = String(c).toInt() -1;
+  int key = String(c).toInt();
   if (key >= MAX_CANIDATS || key < 0){
-    Serial.println("Candidat inconnu");
-    affichage.afficherErreurDeSaisie();
+    Serial.println("Candidat inconnu - affectation du vote sur l'equipe par défaut 0 ");
+    //affichage.afficherErreurDeSaisie();
   }else {
     Serial.print("Candidat ");
     Serial.print(key);
@@ -116,11 +116,9 @@ void process_keyPressed(char key_pressed) {
 
   if (isBoutonVote(key_pressed)) {
     if (selected_candidat == -1) {
-      Serial.println("Veuillez selectionner un candidat d'abord");
-      affichage.afficherErreurDeSaisie();
-    } else {
-      gererVote(getMood(key_pressed));
-    }
+      selected_candidat = 0;
+    } 
+    gererVote(getMood(key_pressed));
   } else {
     gererToucheCandidat(key_pressed);
   }
@@ -164,7 +162,7 @@ void Mood::init()
   start_date = rtc.now();
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
-  clavier.initKeyboard(false);
+  clavier.initKeyboard(true);
   
   server.begin();
 
@@ -188,7 +186,8 @@ void initOTA(){
   });
 
   ota_server.on("/download", HTTP_GET, []() {
-    String s = "Candidat;Happy;Indifferent;Sad\n";
+    String s = "Candidat;Heureux;Indifferent;Triste\n";
+    int allHappy= 0 , allIndifferent = 0, allSad = 0 ;
     for (int i = 0; i < MAX_CANIDATS; i++)
     {
       s+= String(votes_en_cours.getItemName(i)->getItemName());
@@ -199,7 +198,18 @@ void initOTA(){
       s+= ";";
       s+= String(votes_en_cours.getItemName(i)->getMoods(3));
       s+= "\n";
+      allHappy += votes_en_cours.getItemName(i)->getMoods(1);
+      allIndifferent += votes_en_cours.getItemName(i)->getMoods(2);
+      allSad += votes_en_cours.getItemName(i)->getMoods(3);
     }
+    s+= "----------;------------;--------------;------------\n";
+    s+= "Total;";
+    s+= String(allHappy);
+    s+= ";";
+    s+= String(allIndifferent);
+    s+= ";";
+    s+= String(allSad);
+    s+= "\n";
     ota_server.send(200, "text/plain", s.c_str());
     
   });
@@ -298,6 +308,85 @@ void gererVote(int mood) {
 }
 
 
+void initResponseOk(WiFiClient & client){
+  client.println("HTTP/1.0 200 OK");
+  client.println("Content-type:text/html");
+  client.println("Connection: close");
+  client.println();
+}
+
+void initResponseOkCsv(WiFiClient & client){
+  client.println("HTTP/1.0 200 OK");
+  client.println("Content-type:text/csv");
+  client.println("Connection: close");
+  client.println();
+}
+
+String extractTimeStringFromHeader(String & header){
+  int start = header.indexOf("GET /set-time/?datetimestr=") + 27;
+  int end = start + 14;
+  return header.substring(start, end);
+}
+
+void handleSetTimeUrl(WiFiClient & client, String & header){
+  initResponseOk(client);
+
+  String time = extractTimeStringFromHeader(header);  
+  int year = time.substring(0, 4).toInt();
+  int month = time.substring(4, 6).toInt();
+  int day = time.substring(6, 8).toInt();
+  int hour = time.substring(8, 10).toInt();
+  int min = time.substring(10, 12).toInt();
+  int sec = time.substring(12, 14).toInt();
+  Serial.print("year : " );
+  Serial.println(year);
+  Serial.print("month : " );
+  Serial.println(month);
+  Serial.print("day : " );
+  Serial.println(day);
+  Serial.print("hour : " );
+  Serial.println(hour);
+  Serial.print("min : ");
+  Serial.println(min);
+  Serial.print("sec : " );
+  Serial.println(sec);
+  rtc.adjust(DateTime(year, month, day, hour, min, sec));
+  
+}
+
+void handleDonwload(WiFiClient & client){
+  Serial.println("Download");
+  initResponseOk(client);
+  client.println();
+  client.println("Candidat;Happy;Indifferent;Sad");
+  int allHappy= 0 , allIndifferent = 0, allSad = 0 ;
+
+  for (int i = 0; i < MAX_CANIDATS; i++)
+  {
+    client.print(votes_en_cours.getItemName(i)->getItemName());
+    client.print(";");
+    client.print(votes_en_cours.getItemName(i)->getMoods(1));
+    client.print(";");
+    client.print(votes_en_cours.getItemName(i)->getMoods(2));
+    client.print(";");
+    client.print(votes_en_cours.getItemName(i)->getMoods(3));
+    client.print("\n");
+    allHappy += votes_en_cours.getItemName(i)->getMoods(1);
+    allIndifferent += votes_en_cours.getItemName(i)->getMoods(2);
+    allSad += votes_en_cours.getItemName(i)->getMoods(3);
+  }
+  client.print("----------;------------;--------------;------------\n");
+  client.print("Total;"); 
+  client.print(allHappy);
+  client.print(";");
+  client.print(allIndifferent);
+  client.print(";");
+  client.print(allSad);
+  client.print("\n");
+  client.println();
+
+}
+
 void handleWifiClient(){
   WiFiClient client = server.available(); // Listen for incoming clients
   if (client)
@@ -317,90 +406,41 @@ void handleWifiClient(){
           // that's the end of the client HTTP request, so send a response:
           if (currentLine.length() == 0)
           {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println("Connection: close");
-            client.println();
-
             if (header.indexOf("GET /set-time/") >= 0)
             {
-              int start = header.indexOf("GET /set-time/?datetimestr=") + 27;
-              int end = start + 14;
-              String time = header.substring(start, end);
-              //Serial.println("header : " + header);
-              //Serial.println("time : " + time);
-              
-
-              int year = time.substring(0, 4).toInt();
-              int month = time.substring(4, 6).toInt();
-              int day = time.substring(6, 8).toInt();
-              int hour = time.substring(8, 10).toInt();
-              int min = time.substring(10, 12).toInt();
-              int sec = time.substring(12, 14).toInt();
-              Serial.print("year : " );
-              Serial.println(year);
-              Serial.print("month : " );
-              Serial.println(month);
-              Serial.print("day : " );
-              Serial.println(day);
-              Serial.print("hour : " );
-              Serial.println(hour);
-              Serial.print("min : ");
-              Serial.println(min);
-              Serial.print("sec : " );
-              Serial.println(sec);
-              rtc.adjust(DateTime(year, month, day, hour, min, sec));
-
-            }else if (header.indexOf("GET /download") >= 0)
+              handleSetTimeUrl(client, header);
+              break;
+            } else if (header.indexOf("GET /download") >= 0)
             {
-              Serial.println("Download");
-              client.println("HTTP/1.1 200 OK");
-              client.println("Content-Type: text/csv");
-              client.println("Content-Disposition: attachment; filename=votes.csv");
-              client.println("Connection: close");
+              handleDonwload(client);
+              break;
+            } else {
+              initResponseOk(client);
+              // Display the HTML web page
+              client.println("<!DOCTYPE html><html>");
+              client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+              client.println("<link rel=\"icon\" href=\"data:,\">");
+              // CSS to style the on/off buttons
+              // Feel free to change the background-color and font-size attributes to fit your preferences
+              client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+              client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
+              client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+              client.println(".button2 {background-color: #555555;}</style></head>");
+
+              // Web Page Heading
+              client.println("<body><h1>ESP32 Web Server</h1>");
+              getAndDisplayDate(client);
+              getAndDisplayStats(client);
+              getAndDisplayVotes(client);
+              client.println("<a href=\"download\"><button class=\"button button-data\">Download Data</button></a>");
+              
+              client.println("</body></html>");
+
+              // The HTTP response ends with another blank line
               client.println();
-              client.println("Candidat;Happy;Indifferent;Sad");
-              for (int i = 0; i < MAX_CANIDATS; i++)
-              {
-                client.print(votes_en_cours.getItemName(i)->getItemName());
-                client.print(";");
-                client.print(votes_en_cours.getItemName(i)->getMoods(1));
-                client.print(";");
-                client.print(votes_en_cours.getItemName(i)->getMoods(2));
-                client.print(";");
-                client.print(votes_en_cours.getItemName(i)->getMoods(3));
-                client.println();
-              }
+              // Break out of the while loop
               break;
             }
-            
-            // Display the HTML web page
-            client.println("<!DOCTYPE html><html>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<link rel=\"icon\" href=\"data:,\">");
-            // CSS to style the on/off buttons
-            // Feel free to change the background-color and font-size attributes to fit your preferences
-            client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-            client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-            client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-            client.println(".button2 {background-color: #555555;}</style></head>");
-
-            // Web Page Heading
-            client.println("<body><h1>ESP32 Web Server</h1>");
-            getAndDisplayDate(client);
-            getAndDisplayStats(client);
-            getAndDisplayVotes(client);
-            client.println("<a href=\"download\"><button class=\"button button-data\">Download Data</button></a>");
-            
-            client.println("<form action=\"/set-time/\" method=\"get\"><label for=\"datestr\">Date time (YYYYMMDDHH24MISS) :</label><br><input type=\"text\" id=\"datetimestr\" name=\"datetimestr\"><br> <input type=\"submit\" value=\"Mettre A jour\"> </form>");
-            client.println("</body></html>");
-
-            // The HTTP response ends with another blank line
-            client.println();
-            // Break out of the while loop
-            break;
           }
           else
           { // if you got a newline, then clear currentLine
@@ -441,6 +481,8 @@ void getAndDisplayDate(WiFiClient & client){
   client.print(':');
   client.print(now.second(), DEC);
   client.print("</h2></p>");
+  client.println("<form action=\"/set-time/\" method=\"get\"><label for=\"datestr\">Date time (YYYYMMDDHH24MISS) :</label><br><input type=\"text\" id=\"datetimestr\" name=\"datetimestr\"><br> <input type=\"submit\" value=\"Mettre A jour\"> </form>");
+
 }
 
 void getAndDisplayStats(WiFiClient & client){
@@ -474,6 +516,7 @@ void getAndDisplayVotes(WiFiClient & client){
   client.print("<th>Indifferent</th>");
   client.print("<th>Sad</th>");
   client.print("</tr>");
+  int allHappy= 0 , allIndifferent = 0, allSad = 0 ;
   for (int i = 0; i < MAX_CANIDATS; i++)
   {
     client.print("<tr>");
@@ -490,7 +533,24 @@ void getAndDisplayVotes(WiFiClient & client){
     client.print(votes_en_cours.getItemName(i)->getMoods(3));
     client.print("</td>");
     client.print("</tr>");
+    allHappy += votes_en_cours.getItemName(i)->getMoods(1);
+    allIndifferent += votes_en_cours.getItemName(i)->getMoods(2);
+    allSad += votes_en_cours.getItemName(i)->getMoods(3);
   }
+  client.print("<tr>");
+  client.print("<td> Total </td>");
+  client.print("<td>");
+  client.print(allHappy);
+  client.print("</td>");
+  client.print("<td>");
+  client.print(allIndifferent);
+  client.print("</td>");
+  client.print("<td>");
+  client.print(allSad);
+  client.print("</td>");
+
+  client.print("</tr>");
+  client.print("</table>");
 }
 
 

@@ -60,6 +60,7 @@ char Keyboard::recupererTouchePresseOu_(){
     
     if (touches.length() == 1)
     {
+      
         return touches.charAt(0);
     }
     else
