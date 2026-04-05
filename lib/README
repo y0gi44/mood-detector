@@ -44,3 +44,338 @@ libraries by scanning project source files.
 
 More information about PlatformIO Library Dependency Finder
 - https://docs.platformio.org/page/librarymanager/ldf.html
+
+
+
+
+
+esphome:
+  name: esp-rfid3
+  friendly_name: esp_rfid3
+
+substitutions: 
+  module_name: feu
+
+esp32:
+  board: wemos_d1_mini32
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+mqtt:
+  id: mqtt_client
+  topic_prefix: boat
+  discovery: false
+  broker: 192.168.1.102
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery_prefix: modules
+  birth_message:
+    topic: modules/${module_name}/events
+    payload: online
+  will_message:
+    topic: modules/${module_name}/events
+    payload: disconnected
+  shutdown_message:
+    topic: modules/${module_name}/events
+    payload: offline
+  on_json_message:
+    topic: modules/${module_name}/state
+    qos: 0
+    then:
+      - lambda: |-
+          if (x["ventilateur"].is<int>()){
+            int vitesse = x["ventilateur"];
+            switch(vitesse) {
+              case 0: 
+                id(ventilateur_stop).execute();
+                break;
+              case 1: 
+                id(ventilateur_vitesse1).execute();
+                break;
+              case 2: 
+                id(ventilateur_vitesse2).execute();
+                break;
+              case 3: 
+                id(ventilateur_vitesse3).execute();
+                break;
+            }
+          }
+          if (x["lumiere"].is<JsonObject>() ){
+            if (x["lumiere"]["couleur"].is<String>() ){
+              String couleur = x["lumiere"]["couleur"];
+
+              auto call = id(led_strip).turn_on();
+              if (couleur == "jaune") {
+                call.set_rgb(1,1,0);
+              }else if (couleur == "bleu") {
+                call.set_rgb(0,0,1);
+              }else if (couleur == "vert") {
+                call.set_rgb(0,1,0);
+              }else if (couleur == "rouge") {
+                call.set_rgb(1,0,0);
+              }else if (couleur == "blanc") {
+                call.set_rgb(1,1,1);
+              } else { // noir on éteint
+                call.set_rgb(0,0,0);
+              }
+              call.set_transition_length(2000); // in ms
+              call.set_brightness(0.8); 
+              call.perform();
+            }
+            else{
+              if (x["lumiere"]["state"].is<String>() && x["lumiere"]["state"] == "off"){
+                id(led_strip).turn_off().perform();
+              }
+              else {
+                auto call = id(led_strip).turn_on();
+                call.set_transition_length(2000); // in ms
+                
+                if (x["lumiere"]["R"].is<double>() && x["lumiere"]["G"].is<double>() && x["lumiere"]["B"].is<double>()) {
+                  call.set_rgb(x["lumiere"]["R"], x["lumiere"]["G"], x["lumiere"]["B"]); // RGB order
+                }
+                
+                
+                double brightness = 0.8;
+                if (x["lumiere"]["brightness"].is<double>())
+                  brightness = x["lumiere"]["brightness"];
+                
+                call.set_brightness(0.8); 
+
+                //id(led_strip).turn_on().set_.set_brightness(brightness).perform();
+                
+                /*if (y.containsKey["effect"]){
+                  String effect = y["effect"];
+                  call.set_effect(effect);
+                }*/
+                call.perform();
+              }
+            }
+          }
+
+  on_message:
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'ventilateur': 0 }"
+      then:
+        - script.execute: ventilateur_stop
+  
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'ventilateur': 1 }"
+      then:
+        - script.execute: ventilateur_vitesse1
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'ventilateur': 2 }"
+      then:
+        - script.execute: ventilateur_vitesse2
+  
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'ventilateur': 3 }"
+      then:
+        - script.execute: ventilateur_vitesse3
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'couleur': 'jaune'}"
+      then:
+        - light.addressable_set:
+            id: led_strip
+            range_from: 0
+            range_to: 7
+            color_brightness: 50%
+            red: 100%
+            green: 100%
+            blue: 0%
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'couleur': 'bleu'}"
+      then:
+        - light.addressable_set:
+            id: led_strip
+            range_from: 0
+            range_to: 15
+            color_brightness: 70%
+            red: 0%
+            green: 0%
+            blue: 100%
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'couleur': 'vert'}"
+      then:
+        - light.addressable_set:
+            id: led_strip
+            range_from: 0
+            range_to: 23
+            color_brightness: 90%
+            red: 0%
+            green: 100%
+            blue: 0%
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'couleur': 'blanc'}"
+      then:
+        - light.addressable_set:
+            id: led_strip
+            range_from: 0
+            range_to: 23
+            color_brightness: 95%
+            red: 100%
+            green: 100%
+            blue: 100%
+    - topic: modules/${module_name}/state
+      qos: 0
+      payload: "{ 'couleur': 'noir'}"
+      then:
+        - light.addressable_set:
+            id: led_strip
+            range_from: 0
+            range_to: 8
+            red: 0%
+            green: 0%
+            blue: 0%
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "d2I6l8rn+l6EAuz9n5x/qZaCuPnKaX8MpjCWY9oz7Go="
+  reboot_timeout: 24h
+  
+  actions:
+    - action : ventilateur_stop
+      then:
+        - script.execute: ventilateur_stop
+    - action : ventilateur_vitesse1
+      then:
+        - script.execute: ventilateur_vitesse1
+    - action : ventilateur_vitesse2
+      then:
+        - script.execute: ventilateur_vitesse2
+    - action : ventilateur_vitesse3
+      then:
+        - script.execute: ventilateur_vitesse3
+
+script:
+  - id: ventilateur_stop
+    then:
+        - switch.turn_off: relai_vitesse1
+        - switch.turn_off: relai_vitesse2
+        - switch.turn_off: relai_vitesse3
+  - id: ventilateur_vitesse1
+    then:
+        - switch.turn_off: relai_vitesse2
+        - switch.turn_off: relai_vitesse3
+        - switch.turn_on: relai_vitesse1
+  - id: ventilateur_vitesse2
+    then:
+        - switch.turn_off: relai_vitesse1
+        - switch.turn_off: relai_vitesse3
+        - switch.turn_on: relai_vitesse2
+  - id: ventilateur_vitesse3
+    then:
+        - switch.turn_off: relai_vitesse2
+        - switch.turn_off: relai_vitesse1
+        - switch.turn_on: relai_vitesse3
+
+
+
+ota:
+  - platform: esphome
+    password: "9887b6d1e29d8220dba97b185372c7fa"
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid
+    password: !secret wifi_password
+  ## mon tel en point d'accès
+  - ssid: MyHotspot
+    password: fwwi8530
+  - ssid: !secret devfest_ssid
+    password: !secret devfest_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esp-Radar Fallback Hotspot"
+    password: "KwRyX3RCTUpK"
+
+captive_portal:
+
+web_server:
+  local: true
+  port: 80
+  auth:
+    username: !secret devfest_web_server_username
+    password: !secret devfest_web_server_password
+
+# Example configuration entry
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2811
+    id: ring
+    pin: GPIO14
+    num_leds: 12
+    name: "Firelight3"
+    effects:
+      - addressable_color_wipe:
+      - addressable_rainbow:
+      - flicker:
+      - addressable_twinkle:
+      - addressable_fireworks:
+      - addressable_scan:
+          name: Scan Effect
+          move_interval: 20ms
+          scan_width: 12
+
+  - platform: neopixelbus
+    id: led_strip
+    type: GRB
+    variant: WS2812
+    pin: GPIO33
+    num_leds: 150
+    name: "Firelight2"
+    effects:
+      - addressable_color_wipe:
+      - addressable_rainbow:
+      - flicker:
+      - addressable_twinkle:
+      - addressable_fireworks:
+      - addressable_scan:
+          name: Scan Effect
+          move_interval: 20ms
+          scan_width: 15
+
+sensor:
+
+  - platform: uptime
+    name: "esp-rfid3 Uptime"
+    id: esp_rfid_uptime
+  - platform: wifi_signal
+    name: "esp-rfid3 WiFi Signal"
+    id: esp_rfid_wifi_signal
+    update_interval: 60s
+
+switch:
+  - platform: gpio
+    name: "esprfid_relai1"
+    id: relai_vitesse1
+    pin: GPIO27
+    inverted: True
+  - platform: gpio
+    name: "esprfid_relai2"
+    pin: GPIO25
+    id: relai_vitesse2
+    inverted: True
+  - platform: gpio
+    name: "esprfid_relai3"
+    pin: GPIO32
+    id: relai_vitesse3
+    inverted: True
+  - platform: gpio
+    name: "esprfid_relai4"
+    pin: GPIO12
+    inverted: True

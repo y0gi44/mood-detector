@@ -5,10 +5,10 @@ const byte ROWS = 4;
 const byte COLS = 4; 
 // Definition des touches du clavier
 char keys[ROWS][COLS] = {
-{'1','2','3', 'A'},
-{'4','5','6', 'B'},
-{'7','8','9', 'C'},
-{'*','0','#', 'D'}
+{'6','5','D', 'A'},
+{'7','4',';', 'B'},
+{'8','3','2', 'C'},
+{'9','1','#', '*'}
 };
 
 // Configuration des pin du GPIO pour lignes et colonnes du clavier 
@@ -60,6 +60,7 @@ char Keyboard::recupererTouchePresseOu_(){
     
     if (touches.length() == 1)
     {
+      
         return touches.charAt(0);
     }
     else
