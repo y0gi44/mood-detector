@@ -13,7 +13,7 @@ class VoteItem {
         void incrementVotes(int key){ this->mood[key]++; };
         
         String getItemName(){ return this->itemName; };
-        uint8_t getMoods(int key){ return this->mood[key]; };
+        uint16_t getMoods(int key){ return this->mood[key]; };
 
         void load_from_string(String chaine){
             char buf[20];
@@ -36,7 +36,7 @@ class VoteItem {
 
     private:
         String itemName;
-        uint8_t mood[MAX_MOODS];
+        uint16_t mood[MAX_MOODS];
 };
 
 #endif

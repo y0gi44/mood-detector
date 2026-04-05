@@ -1,8 +1,13 @@
 #include "Affichage.h"
+/*
+byte green_led_pin = 12;
+byte yellow_led_pin = 13;
+byte red_led_pin = 14;
+*/
 
-byte green_led_pin = 13;
-byte yellow_led_pin = 14;
-byte red_led_pin = 12;
+byte green_led_pin = 14;
+byte yellow_led_pin = 12;
+byte red_led_pin = 13;
 
 void Affichage::initAffichage(bool debug ){
   // Initialize the output variables as outputs

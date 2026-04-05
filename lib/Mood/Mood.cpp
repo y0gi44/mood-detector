@@ -18,10 +18,11 @@
 #include <Preferences.h>
 Preferences preferences;
 
+String version = "0.0.4" ;
 
 #define RED_PIN 13
-#define GREEN_PIN 12
-#define YELLOW_PIN 14
+#define GREEN_PIN 14
+#define YELLOW_PIN 12
 
 unsigned long loopCount;
 unsigned long startTime;
@@ -182,11 +183,13 @@ void initOTA(){
   Serial.println("Start OTA initialization...");
 
   ota_server.on("/", []() {
-    ota_server.send(200, "text/plain", "Hi! This is ElegantOTA Demo Oh yeaaahh !!!.");
+    ota_server.send(200, "text/plain", "Hi! This is ElegantOTA Demo Oh yeaaahh !!!. version "+version);
   });
 
   ota_server.on("/download", HTTP_GET, []() {
-    String s = "Candidat;Heureux;Indifferent;Triste\n";
+    String s = "Version;" + String(version);
+    s+= "----------;------------;--------------;------------\n";
+    s += "Candidat;Heureux;Indifferent;Triste\n";
     int allHappy= 0 , allIndifferent = 0, allSad = 0 ;
     for (int i = 0; i < MAX_CANIDATS; i++)
     {
@@ -210,6 +213,7 @@ void initOTA(){
     s+= ";";
     s+= String(allSad);
     s+= "\n";
+    s+= "----------;------------;--------------;------------\n";
     ota_server.send(200, "text/plain", s.c_str());
     
   });
@@ -220,7 +224,7 @@ void initOTA(){
   });
 
   ota_server.on("/restore", HTTP_GET, []() {
-    save_vote_en_cours();
+    restore_vote_en_cours();
     ota_server.send(200, "text/plain", "Hi, vote en cours restaurés. ");    
   });
 
@@ -293,13 +297,13 @@ void gererVote(int mood) {
   switch (mood)
   { 
     case 1:
-      affichage.afficherVotesPrisEnCompte(RED_PIN);
+      affichage.afficherVotesPrisEnCompte(GREEN_PIN);
       break;
     case 2:
       affichage.afficherVotesPrisEnCompte(YELLOW_PIN);
       break;
     case 3:
-      affichage.afficherVotesPrisEnCompte(GREEN_PIN);
+      affichage.afficherVotesPrisEnCompte(RED_PIN);
       break;
     default:
       Serial.println("Mood inconnu");
@@ -358,6 +362,8 @@ void handleDonwload(WiFiClient & client){
   Serial.println("Download");
   initResponseOk(client);
   client.println();
+
+  client.print("----------;------------;--------------;------------\n");
   client.println("Candidat;Happy;Indifferent;Sad");
   int allHappy= 0 , allIndifferent = 0, allSad = 0 ;
 
@@ -413,6 +419,20 @@ void handleWifiClient(){
             } else if (header.indexOf("GET /download") >= 0)
             {
               handleDonwload(client);
+              break;
+            }else if (header.indexOf("GET /save") >= 0)
+            {
+              save_vote_en_cours();
+               initResponseOk(client);
+               client.println();
+               client.print("sauvegarde des votes");
+              break;
+            }else if (header.indexOf("GET /restore") >= 0)
+            {
+              restore_vote_en_cours();
+              initResponseOk(client);
+               client.println();
+               client.print("restauration des votes");
               break;
             } else {
               initResponseOk(client);
@@ -508,7 +528,7 @@ void getAndDisplayStats(WiFiClient & client){
 
 void getAndDisplayVotes(WiFiClient & client){
   client.print("</a><p><h2>Current Votes : ");
-  client.print("</h2></p>");
+  client.print("</h2></p> <form action=\"/save\"><input type=\"submit\" value=\"Save\" /></form> <form action=\"/restore\"><input type=\"submit\" value=\"Restore\" /></form>");
   client.print("<table style=\"width:100%\">");
   client.print("<tr>");
   client.print("<th>Candidat</th>");
