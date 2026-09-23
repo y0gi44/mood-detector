@@ -59,7 +59,7 @@ Affichage affichage;
 #define MAX_CANIDATS 10
 String candidats[MAX_CANIDATS] = {"Equipe 0", "Equipe 1", "Equipe 2", "Equipe 3", "Equipe 4", "Equipe 5",
                                   "Equipe 6", "Equipe 7", "Equipe 8", "Equipe 9"};
-int selected_candidat;
+int selected_candidat = -1;
 
 
 void initRTC();
@@ -575,7 +575,7 @@ void getAndDisplayVotes(WiFiClient & client){
 
 
 bool isBoutonVote(char c){
-  return c == 'A' || c == 'B' || c == 'C' || c == 'D';
+  return c == 'A' || c == 'B' || c == 'C' ;
 }
 
 int getMood(char c){
@@ -589,9 +589,6 @@ int getMood(char c){
     break;
   case 'C':
     return 3;
-    break;
-  case 'D':
-    return 4;
     break;
   default:
     return -1;

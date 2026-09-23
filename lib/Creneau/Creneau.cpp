@@ -497,7 +497,7 @@ void getAndDisplayVotes(WiFiClient & client){
 
 
 bool isBoutonVote(char c){
-  return c == 'A' || c == 'B' || c == 'C' || c == 'D';
+  return c == 'A' || c == 'B' || c == 'C' ;
 }
 
 int getMood(char c){
@@ -511,9 +511,6 @@ int getMood(char c){
     break;
   case 'C':
     return 3;
-    break;
-  case 'D':
-    return 4;
     break;
   default:
     return -1;

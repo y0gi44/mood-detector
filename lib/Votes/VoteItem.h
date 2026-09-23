@@ -10,7 +10,7 @@ class VoteItem {
         VoteItem(){};
         void setItemName(String name){ this->itemName = name; };
         void resetVotes(){ for (int i = 0 ; i < MAX_MOODS; i ++ ) mood[i] = 0; };
-        void incrementVotes(int key){ this->mood[key]++; };
+        void incrementVotes(int key){ if (key < MAX_MOODS) {this->mood[key]++; }};
         
         String getItemName(){ return this->itemName; };
         uint16_t getMoods(int key){ return this->mood[key]; };
