@@ -87,12 +87,12 @@ Le serveur HTTP brut dispose d'un timeout d'inactivite de deux secondes et limit
 
 | Port | Service | Authentification |
 |---:|---|---|
-| 80 | page web, date, resultats, CSV | aucune actuellement |
+| 80 | page web, date, resultats, CSV | Basic Auth |
 | 8080 | sauvegarde, restauration, reset, OTA | Basic Auth |
 
 ## Points de vigilance
 
-- Le serveur du port 80 reste a proteger si la borne est connectee a un reseau partage.
+- Les deux serveurs HTTP demandent les identifiants de `include/AppConfig.h`.
 - Les identifiants sont stockes dans le firmware et doivent etre changes avant production.
 - L'ESP32 doit etre alimente en 3.3 V sur ses GPIO.
 - Une validation sur materiel reel reste necessaire pour les timings du clavier, les LEDs et le RTC.

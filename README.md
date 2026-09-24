@@ -43,7 +43,6 @@ dans [docs/schema-cablage.md](docs/schema-cablage.md).
 ## Securite
 
 Les identifiants du depot sont des valeurs de prototype. Modifier
-`include/AppConfig.h` avant toute utilisation partagee. Le serveur OTA sur le
-port `8080` est protege par authentification ; le serveur de consultation sur
-le port `80` reste local mais ne demande pas encore d'authentification.
+`include/AppConfig.h` avant toute utilisation partagee. Les serveurs des ports
+`80` et `8080` sont proteges par authentification.
 # mood-detector

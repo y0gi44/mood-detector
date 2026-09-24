@@ -10,7 +10,9 @@
    - SSID : `Mood1`
    - Mot de passe : `123456789`
 
-5. Ouvrir `http://192.168.4.1` dans un navigateur.
+5. Ouvrir `http://192.168.4.1` dans un navigateur et saisir les identifiants :
+   - utilisateur : `admin` ;
+   - mot de passe : `123456789`.
 
 L'adresse IP est affichee sur le port serie au demarrage. Le nom `mood-detector.local` n'est pas configure par le firmware actuel et ne doit donc pas etre utilise comme adresse de reference.
 
@@ -111,4 +113,5 @@ Les identifiants actuels sont des valeurs de prototype. Avant une utilisation re
 - modifier les valeurs dans `include/AppConfig.h` ;
 - ne pas partager le mot de passe ;
 - ne pas exposer le point d'acces a un reseau non controle ;
-- noter que le serveur principal sur le port `80` ne demande pas encore d'authentification, contrairement au serveur OTA.
+- le serveur principal et le serveur OTA utilisent tous les deux Basic Auth ;
+   modifier les identifiants avant une utilisation reelle.
