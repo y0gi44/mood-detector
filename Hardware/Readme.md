@@ -42,3 +42,12 @@ Afin de fermer un peu la vue de tous les fils, j'ai modélisé en 3D rapidement 
 <img src="/Hardware/ressources/Modele_3D.png" width="100%" height="100%"> 
 
 J'ai mis dans le répertoir STL les modèles 3D des différentes pieces
+
+## Documentation technique actuelle
+
+Le firmware actif cree le point d'acces Wi-Fi `Mood1` et expose la page
+principale sur `http://192.168.4.1`. Le detail des broches, du clavier et du
+RTC est maintenu dans [../docs/schema-cablage.md](../docs/schema-cablage.md).
+
+Le manuel de connexion et d'utilisation est dans
+[../docs/manuel-utilisateur.md](../docs/manuel-utilisateur.md).

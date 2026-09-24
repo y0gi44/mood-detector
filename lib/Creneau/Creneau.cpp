@@ -9,6 +9,7 @@
 #include "KeyBoard.h"
 
 #include "Affichage.h"
+#include "AppConfig.h"
 
 #include <WiFiClient.h>
 #include <WebServer.h>
@@ -26,10 +27,6 @@ Preferences preferences;
 unsigned long loopCount;
 unsigned long startTime;
 String msg;
-
-// Replace with your network credentials
-const char *ssid = "Mood1";
-const char *password = "123456789";
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -57,7 +54,7 @@ Affichage affichage;
 
 #define MAX_CANIDATS 5
 String candidats[MAX_CANIDATS] = {"11H45", "12h00", "12h30", "13h00", "13h30"};
-int selected_candidat;
+int selected_candidat = -1;
 
 
 void initRTC();
@@ -156,8 +153,8 @@ void onOTAEnd(bool success) {
 
 void Creneau::init()
 {
-  affichage.initAffichage(false);
   Serial.begin(115200);
+  affichage.initAffichage(false);
   initRTC();
   initAp();
 
@@ -166,6 +163,9 @@ void Creneau::init()
 
   votes_en_cours.init(candidats, MAX_CANIDATS);
   clavier.initKeyboard(false);
+  if (!preferences.begin("mood-stats", false)) {
+    Serial.println("Impossible d'ouvrir les preferences");
+  }
   
   server.begin();
 
@@ -173,10 +173,6 @@ void Creneau::init()
 
   Serial.print("Setup Complete !");
   affichage.afficherInitEnCours();
-
-  preferences.begin("mood-stats", false); 
-
-
 }
 
 
@@ -185,10 +181,18 @@ void initOTA(){
   Serial.println("Start OTA initialization...");
 
   ota_server.on("/", []() {
+    if (!ota_server.authenticate(AppConfig::webUser, AppConfig::webPassword)) {
+      ota_server.requestAuthentication();
+      return;
+    }
     ota_server.send(200, "text/plain", "Hi! This is ElegantOTA Demo Oh yeaaahh !!!.");
   });
 
   ota_server.on("/download", HTTP_GET, []() {
+    if (!ota_server.authenticate(AppConfig::webUser, AppConfig::webPassword)) {
+      ota_server.requestAuthentication();
+      return;
+    }
     String s = "Créneau;Nombre des couverts\n";
     int allCouverts = 0;
     for (int i = 0; i < MAX_CANIDATS; i++)
@@ -207,22 +211,35 @@ void initOTA(){
   });
 
   ota_server.on("/save", HTTP_GET, []() {
+    if (!ota_server.authenticate(AppConfig::webUser, AppConfig::webPassword)) {
+      ota_server.requestAuthentication();
+      return;
+    }
     save_vote_en_cours();
     ota_server.send(200, "text/plain", "Hi, vote en cours sauvegardé. ");    
   });
 
   ota_server.on("/restore", HTTP_GET, []() {
+    if (!ota_server.authenticate(AppConfig::webUser, AppConfig::webPassword)) {
+      ota_server.requestAuthentication();
+      return;
+    }
     restore_vote_en_cours();
     ota_server.send(200, "text/plain", "Hi, vote en cours restaurés. ");    
   });
 
   ota_server.on("/reset", HTTP_GET, []() {
+    if (!ota_server.authenticate(AppConfig::webUser, AppConfig::webPassword)) {
+      ota_server.requestAuthentication();
+      return;
+    }
     preferences.clear();
+    votes_en_cours.resetVotes();
     Serial.println("Suppression de la sauvegarde en flash");
     ota_server.send(200, "text/plain", "memory cleared. ");    
   });
 
-  ElegantOTA.begin(&ota_server);    // Start ElegantOTA
+  ElegantOTA.begin(&ota_server, AppConfig::webUser, AppConfig::webPassword);    // Start ElegantOTA
   // ElegantOTA callbacks
   ElegantOTA.onStart(onOTAStart);
   ElegantOTA.onProgress(onOTAProgress);
@@ -237,7 +254,7 @@ void initAp(){
   Serial.print("Setting AP (Access Point)…");
   // Remove the password parameter, if you want the AP (Access Point) to be open
   //WiFi.softAP(ssid, password);
-  WiFi.softAP(ssid);
+  WiFi.softAP(AppConfig::wifiSsid, AppConfig::wifiPassword);
 
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
@@ -305,14 +322,24 @@ void handleWifiClient(){
   if (client)
   {                                // If a new client connects,
     Serial.println("New Client."); // print a message out in the serial port
+    header = "";
+    header.reserve(1024);
     String currentLine = "";       // make a String to hold incoming data from the client
+    unsigned long lastActivity = millis();
     while (client.connected())
     { // loop while the client's connected
+      if (millis() - lastActivity > 2000) {
+        break;
+      }
       if (client.available())
       {                         // if there's bytes to read from the client,
         char c = client.read(); // read a byte, then
+        lastActivity = millis();
         Serial.write(c);        // print it out the serial monitor
         header += c;
+        if (header.length() > 1024) {
+          break;
+        }
         if (c == '\n')
         { // if the byte is a newline character
           // if the current line is blank, you got two newline characters in a row.

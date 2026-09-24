@@ -15,23 +15,23 @@ private:
     int currentItem;
 
 public:
-    Historiseur();
+    Historiseur() : currentItem(-1) {};
 
-    void recordItem(T items, String dateEnregistrement){
+    void recordItem(T item, String dateEnregistrement){
         currentItem++;
         if (currentItem == MAX_ITEMS_HISTORY){
             currentItem = 0;
         }
 
-        items[currentItem] = items;
+        this->items[currentItem] = item;
         datesEnregistrement[currentItem] = dateEnregistrement;
         
     };
 
-    T getCurrentItem(){ return items[currentItem]; };
-    String getCurrentDateEnregistrement(){ return datesEnregistrement[currentItem]; };
-    T getItem(int index){ return items[index]; };
-    String getDateEnregistrement(int index){ return datesEnregistrement[index]; };
+    T getCurrentItem(){ return currentItem >= 0 ? items[currentItem] : T(); };
+    String getCurrentDateEnregistrement(){ return currentItem >= 0 ? datesEnregistrement[currentItem] : String(); };
+    T getItem(int index){ return (index >= 0 && index < MAX_ITEMS_HISTORY) ? items[index] : T(); };
+    String getDateEnregistrement(int index){ return (index >= 0 && index < MAX_ITEMS_HISTORY) ? datesEnregistrement[index] : String(); };
     int getCurrentItemIndex(){ return currentItem; };
     int getItemsCount(){ return MAX_ITEMS_HISTORY; };
 

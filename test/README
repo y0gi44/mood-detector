@@ -9,3 +9,15 @@ in the development cycle.
 
 More information about PlatformIO Unit Testing:
 - https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+
+## Lancer les tests
+
+Les tests de logique de vote fonctionnent sur la machine hote et ne necessitent
+pas d'ESP32 :
+
+```bash
+pio test -e native
+```
+
+Ils couvrent l'indexation des moods, les bornes des candidats, la
+serialisation/restauration et le rejet de donnees invalides.

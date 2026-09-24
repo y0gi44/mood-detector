@@ -40,7 +40,7 @@ void Affichage::afficherVotesPrisEnCompte(){
     TableauSequence[index++] = {green_led_pin, 500, 100};
     
     currentIndex = 0;
-    maxIndexSequenceEnMemoire = index - 1;
+    maxIndexSequenceEnMemoire = index;
     this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
@@ -55,7 +55,7 @@ void Affichage::afficherVotesPrisEnCompte(byte ledPin){
     TableauSequence[index++] = {ledPin, 300, 100};
     
     currentIndex = 0;
-    maxIndexSequenceEnMemoire = index - 1;
+    maxIndexSequenceEnMemoire = index;
     this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
@@ -69,7 +69,7 @@ void Affichage::afficherErreurDeSaisie(){
     TableauSequence[index++] = {green_led_pin, 100, 100};
         
     currentIndex = 0;
-    maxIndexSequenceEnMemoire = index - 1;
+    maxIndexSequenceEnMemoire = index;
     this->eteindreToutesLesLed();
     allumerLedEtMajTemps();
 }
@@ -89,7 +89,7 @@ void Affichage::afficherInitEnCours(){
     TableauSequence[index++] = {green_led_pin, 300, 100};
     
     currentIndex = 0;
-    maxIndexSequenceEnMemoire = index - 1;
+    maxIndexSequenceEnMemoire = index;
     this->eteindreToutesLesLed();  
     allumerLedEtMajTemps();
 }
@@ -113,7 +113,7 @@ void Affichage::processAffichage() {
 
 
     unsigned long currentTime = millis();
-    if (timetoGoNext < currentTime) {
+    if (static_cast<long>(currentTime - timetoGoNext) >= 0) {
         // on passe à l'index suivant
         if (debug)
             Serial.println("incrément de l'index : " + String(currentIndex));
@@ -123,7 +123,7 @@ void Affichage::processAffichage() {
         if (currentIndex < maxIndexSequenceEnMemoire) {
             allumerLedEtMajTemps();
         }
-    } else if (timetoLightOff  < currentTime) {
+    } else if (static_cast<long>(currentTime - timetoLightOff) >= 0) {
         // on éteint la led
         digitalWrite(TableauSequence[currentIndex].pin, LOW);
         if (debug)
