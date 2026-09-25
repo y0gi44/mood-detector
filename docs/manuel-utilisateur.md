@@ -59,6 +59,8 @@ Identifiants actuels :
 
 `reset` efface la sauvegarde et remet aussi les votes en memoire a zero. Les votes sauvegardes sont automatiquement restaures au redemarrage.
 
+Le bouton "Reinitialiser" de la page principale (`http://192.168.4.1/reset`) mene a une page de confirmation avant d'effacer les votes, pour eviter un reset accidentel.
+
 ## 5. Regler l'heure
 
 Sur la page principale, utiliser le formulaire avec le format strict :

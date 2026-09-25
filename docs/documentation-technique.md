@@ -87,7 +87,7 @@ Le serveur HTTP brut dispose d'un timeout d'inactivite de deux secondes et limit
 
 | Port | Service | Authentification |
 |---:|---|---|
-| 80 | page web, date, resultats, CSV | Basic Auth |
+| 80 | page web, date, resultats, CSV, reset (avec confirmation) | Basic Auth |
 | 8080 | sauvegarde, restauration, reset, OTA | Basic Auth |
 
 ## Points de vigilance
